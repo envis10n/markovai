@@ -1,4 +1,14 @@
 import * as rand from "../rand";
+import { Table } from "../db";
+
+export interface SuffixTable {
+    prefix: string;
+    suffix: string;
+}
+export const Suffixes = new Table<SuffixTable>("suffixes", {
+    prefix: "TEXT",
+    suffix: "TEXT",
+});
 
 export interface ISuffixMap {
     [key: string]: string[];
@@ -14,6 +24,31 @@ function min(a: number, b: number): number {
 export class MarkovGenerator {
     public prefixes: string[] = [];
     public suffixes: ISuffixMap = {};
+    public clear(): void {
+        this.prefixes = [];
+        this.suffixes = {};
+    }
+    public async load(): Promise<number> {
+        this.suffixes = {};
+        this.prefixes = [];
+        const res = await Suffixes.all();
+        for (const row of res) {
+            if (this.suffixes[row.prefix] == undefined) {
+                this.suffixes[row.prefix] = [];
+            }
+            this.suffixes[row.prefix].push(row.suffix);
+            this.prefixes.push(row.prefix);
+        }
+        return res.length;
+    }
+    public async save(): Promise<void> {
+        await Suffixes.truncate();
+        for (const prefix of this.prefixes) {
+            for (const suffix of this.suffixes[prefix]) {
+                await Suffixes.insert({ prefix, suffix });
+            }
+        }
+    }
     /**
      * Generate an arbitrary amount of words based on the stored input tokens.
      * @param length The amount of words to generate.
