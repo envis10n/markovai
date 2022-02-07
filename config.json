@@ -1,3 +1,4 @@
 {
-    "database": "markov.db"
+    "database": "markov.db",
+    "port": 3000
 }

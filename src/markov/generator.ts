@@ -22,8 +22,15 @@ function min(a: number, b: number): number {
  * A markov chain generator that internally stores the parsed input tokens for later use.
  */
 export class MarkovGenerator {
+    private _next_save: number = 0;
     public prefixes: string[] = [];
     public suffixes: ISuffixMap = {};
+    public get nextSaveISO(): string {
+        return new Date(this._next_save).toISOString();
+    }
+    public get nextSave(): number {
+        return this._next_save;
+    }
     public clear(): void {
         this.prefixes = [];
         this.suffixes = {};
@@ -40,6 +47,21 @@ export class MarkovGenerator {
             this.prefixes.push(row.prefix);
         }
         return res.length;
+    }
+    public startSave(interval: number = 60 * 10): NodeJS.Timer {
+        const save_interval = interval * 1000;
+        this._next_save = Date.now() + save_interval;
+        const _int = setInterval(async () => {
+            const ctime = Date.now();
+            if (this._next_save <= ctime) {
+                console.log("[DB] Auto saving...");
+                await this.save();
+                this._next_save = Date.now() + save_interval;
+                console.log("[DB] Done. Next save at", this.nextSaveISO);
+            }
+        }, 5000);
+        console.log("[DB] Auto save started. Next save at", this.nextSaveISO);
+        return _int;
     }
     public async save(): Promise<void> {
         await Suffixes.truncate();

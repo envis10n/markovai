@@ -5,6 +5,7 @@ const CONFIG_PATH: string = path.resolve(process.cwd(), "config.json");
 
 export interface IConfig {
     database: string;
+    port: number;
 }
 
 const conf: Partial<IConfig> = JSON.parse(
@@ -13,6 +14,7 @@ const conf: Partial<IConfig> = JSON.parse(
 
 const _CONF: IConfig = {
     database: conf.database || "markov.db",
+    port: conf.port || 3000,
 };
 
 export default _CONF;
