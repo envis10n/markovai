@@ -2,8 +2,6 @@ import sqlite3, { Statement } from "sqlite3";
 import { open, Database, ISqlite } from "sqlite";
 import config from "./config";
 
-sqlite3.verbose();
-
 let _DATABASE: Database | null = null;
 
 export default async function getDB(
