@@ -1,17 +1,9 @@
 import Router from "@koa/router";
 import Markov from "../../../markov";
 
-const _ROUTER = new Router({prefix: "/v1"});
+const _ROUTER = new Router({ prefix: "/v1" });
 
-const _MARKOV = new Router({prefix: "/markov"});
-
-_MARKOV.get("/nextsave", (ctx, next) => {
-    ctx.body = {
-        ts: Date.now(),
-        next: Markov.nextSaveISO,
-        next_ts: Markov.nextSave,
-    }
-});
+const _MARKOV = new Router({ prefix: "/markov" });
 
 _ROUTER.get("/test", (ctx, next) => {
     ctx.body = {

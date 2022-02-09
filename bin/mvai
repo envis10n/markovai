@@ -1,0 +1,76 @@
+#!/usr/bin/env node
+
+const yargs = require("yargs/yargs");
+const { hideBin } = require("yargs/helpers");
+const path = require("path");
+
+yargs(hideBin(process.argv))
+    .version()
+    .option("verbose", {
+        alias: "v",
+        description: "Use verbose logging.",
+        default: false,
+        type: "boolean",
+    })
+    .command(
+        "purge",
+        "Delete all stored parses.",
+        (yargs) => yargs,
+        async (args) => {
+            const handler = require(path.resolve(
+                __dirname,
+                "../build/purge.js"
+            )).default;
+            await handler(args);
+        }
+    )
+    .command(
+        "parse",
+        "Parse the provided file and save into the local db.",
+        (yargs) => {
+            return yargs
+                .option("filename", {
+                    alias: "F",
+                    description: "Path to the file for import.",
+                    type: "string",
+                })
+                .option("window", {
+                    alias: "n",
+                    description: "The window size to use.",
+                    type: "number",
+                    default: 2,
+                });
+        },
+        async (args) => {
+            const handler = require(path.resolve(
+                __dirname,
+                "../build/parse.js"
+            )).default;
+            await handler(args);
+        }
+    )
+    .command(
+        "generate",
+        "Generate words using the local db.",
+        (yargs) => {
+            return yargs.option("words", {
+                alias: "w",
+                type: "number",
+                description: "The number of words to generate.",
+                default: 200,
+            });
+        },
+        async (args) => {
+            const handler = require(path.resolve(
+                __dirname,
+                "../build/generate.js"
+            )).default;
+            await handler(args);
+        }
+    )
+    .parseAsync()
+    .then(() => {})
+    .catch((e) => {
+        console.error(e);
+        process.exit(1);
+    });

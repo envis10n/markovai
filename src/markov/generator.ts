@@ -1,5 +1,6 @@
 import * as rand from "../rand";
 import { Table } from "../db";
+import { _TABLE } from ".";
 
 export interface SuffixTable {
     prefix: string;
@@ -22,67 +23,27 @@ function min(a: number, b: number): number {
  * A markov chain generator that internally stores the parsed input tokens for later use.
  */
 export class MarkovGenerator {
-    private _next_save: number = 0;
-    public prefixes: string[] = [];
-    public suffixes: ISuffixMap = {};
-    public get nextSaveISO(): string {
-        return new Date(this._next_save).toISOString();
-    }
-    public get nextSave(): number {
-        return this._next_save;
-    }
-    public clear(): void {
-        this.prefixes = [];
-        this.suffixes = {};
-    }
-    public async load(): Promise<number> {
-        this.suffixes = {};
-        this.prefixes = [];
-        const res = await Suffixes.all();
-        for (const row of res) {
-            if (this.suffixes[row.prefix] == undefined) {
-                this.suffixes[row.prefix] = [];
-            }
-            this.suffixes[row.prefix].push(row.suffix);
-            this.prefixes.push(row.prefix);
-        }
-        return res.length;
-    }
-    public startSave(interval: number = 60 * 10): NodeJS.Timer {
-        const save_interval = interval * 1000;
-        this._next_save = Date.now() + save_interval;
-        const _int = setInterval(async () => {
-            const ctime = Date.now();
-            if (this._next_save <= ctime) {
-                console.log("[DB] Auto saving...");
-                await this.save();
-                this._next_save = Date.now() + save_interval;
-                console.log("[DB] Done. Next save at", this.nextSaveISO);
-            }
-        }, 5000);
-        console.log("[DB] Auto save started. Next save at", this.nextSaveISO);
-        return _int;
-    }
-    public async save(): Promise<void> {
-        await Suffixes.truncate();
-        for (const prefix of this.prefixes) {
-            for (const suffix of this.suffixes[prefix]) {
-                await Suffixes.insert({ prefix, suffix });
-            }
-        }
+    private async getRandomPrefix(): Promise<string> {
+        const res = await _TABLE.all("prefix");
+        if (res.length == 0) throw new Error("Empty table.");
+        const rnd = await rand.randomElement(res);
+        if (rnd.prefix == undefined) throw new Error("No prefix");
+        return rnd.prefix;
     }
     /**
      * Generate an arbitrary amount of words based on the stored input tokens.
      * @param length The amount of words to generate.
      * @returns Generated text
      */
-    public generate(length: number): string {
+    public async generate(length: number): Promise<string> {
         const res: string[] = [];
-        let prefix: string = rand.randomElementSync(this.prefixes);
+        let prefix: string = await this.getRandomPrefix();
         let suffix: string;
         res.push(prefix);
         while (res.length < length) {
-            const suf = this.suffixes[prefix];
+            const suf: string[] = (await _TABLE.select(["suffix"], { prefix }))
+                .filter((o) => o.suffix != undefined)
+                .map((o) => o.suffix) as string[];
             if (suf != undefined) {
                 if (suf.length > 1) {
                     suffix = rand.randomElementSync(suf);
@@ -93,7 +54,7 @@ export class MarkovGenerator {
                 const t: string[] = prefix.split(" ");
                 prefix = `${t[t.length - 1]} ${suffix}`;
             } else {
-                prefix = rand.randomElementSync(this.prefixes);
+                prefix = await this.getRandomPrefix();
             }
         }
         return res.join(" ");
@@ -103,7 +64,7 @@ export class MarkovGenerator {
      * @param input The input to parse.
      * @param n The window size for parsing tokens.
      */
-    public parse(input: string, n: number = 2) {
+    public async parse(input: string, n: number = 2) {
         const inp: string[] = input.replace(/\r\n/g, "\n").split(" ");
         const temp: string[] = [];
         for (let t of inp) {
@@ -129,10 +90,7 @@ export class MarkovGenerator {
             const prefix = t.join(" ");
             if (prefix.length > 0 && t.length == n) {
                 const suffix = temp[ix];
-                if (this.suffixes[prefix] == undefined)
-                    this.suffixes[prefix] = [];
-                this.suffixes[prefix].push(suffix);
-                this.prefixes.push(prefix);
+                await _TABLE.insert({ prefix, suffix });
             }
         }
     }

@@ -2,10 +2,15 @@ import sqlite3, { Statement } from "sqlite3";
 import { open, Database, ISqlite } from "sqlite";
 import config from "./config";
 
+sqlite3.verbose();
+
 let _DATABASE: Database | null = null;
 
-export default async function getDB(): Promise<Database> {
+export default async function getDB(
+    verbose: boolean = false
+): Promise<Database> {
     if (_DATABASE == null) {
+        if (verbose) sqlite3.verbose();
         _DATABASE = await open({
             filename: config.database,
             driver: sqlite3.cached.Database,
@@ -27,6 +32,32 @@ export class Table<T> {
             .join(",");
         this._createQuery = `CREATE TABLE ${this.name} (${coldef});`;
         this._dropQuery = `DROP TABLE ${this.name};`;
+    }
+    public async query<K = T[]>(query: ISqlite.SqlType): Promise<K> {
+        const db = await getDB();
+        return await db.all<K>(query);
+    }
+    public async select(
+        cols: (keyof T)[],
+        condition?: Partial<T>
+    ): Promise<Partial<T>[]> {
+        const cond =
+            condition == undefined
+                ? ";"
+                : ` WHERE ${Object.keys(condition)
+                      .map((k) => `${k} = :${k}`)
+                      .join(" AND ")};`;
+        const cond2: { [key: string]: any } | undefined =
+            condition == undefined ? undefined : {};
+        if (cond2 != undefined && condition != undefined) {
+            for (const k of Object.keys(condition)) {
+                cond2[`:${k}`] = condition[k as keyof T];
+            }
+        }
+        const query = `SELECT ${cols.join(",")} FROM ${this.name}${cond}`;
+        const db = await getDB();
+        if (condition == undefined) return await db.all<Partial<T>[]>(query);
+        else return await db.all<Partial<T>[]>(query, cond2);
     }
     public async all(): Promise<T[]>;
     public async all(...columns: (keyof T)[]): Promise<Partial<T>[]>;

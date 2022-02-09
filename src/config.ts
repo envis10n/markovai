@@ -9,7 +9,13 @@ export interface IConfig {
 }
 
 const conf: Partial<IConfig> = JSON.parse(
-    fs.readFileSync(CONFIG_PATH, { encoding: "utf-8" })
+    ((): string => {
+        try {
+            return fs.readFileSync(CONFIG_PATH, { encoding: "utf-8" });
+        } catch (e) {
+            return "{}";
+        }
+    })()
 );
 
 const _CONF: IConfig = {
